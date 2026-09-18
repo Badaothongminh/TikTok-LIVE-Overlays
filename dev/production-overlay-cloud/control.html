@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TikTok LIVE Overlay</title>
+  <link rel="stylesheet" href="/control.css">
+</head>
+<body>
+  <section id="loginView" class="login-view">
+    <form id="loginForm" class="login-card">
+      <h1>TikTok LIVE Overlay</h1>
+      <p>Sign in to open the Control Room.</p>
+
+      <label for="password">Access password</label>
+      <input
+        id="password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        required
+      >
+
+      <button id="loginButton" type="submit">
+        Sign In
+      </button>
+
+      <p id="loginError" class="error-text" role="alert"></p>
+    </form>
+  </section>
+
+  <main id="controlView" class="app-shell" hidden>
+    <header class="connection-bar">
+      <div class="brand">TikTok LIVE Overlay</div>
+
+      <div class="connection-status">
+        <span id="statusIndicator" class="status-indicator"></span>
+        <div class="status-copy">
+          <span id="statusText" class="status-text">Loading...</span>
+          <span id="roomText" class="room-text">No room selected</span>
+        </div>
+      </div>
+
+      <form id="connectForm" class="connect-form">
+        <label class="sr-only" for="username">TikTok username</label>
+
+        <input
+          id="username"
+          name="username"
+          type="text"
+          placeholder="@Tiktok_User_ID"
+          autocomplete="off"
+          spellcheck="false"
+        >
+
+        <button id="connectButton" type="submit">
+          Connect
+        </button>
+
+        <button id="disconnectButton" type="button">
+          Disconnect
+        </button>
+      </form>
+
+      <div class="obs-url">
+        OBS: /overlay
+      </div>
+
+      <button id="logoutButton" class="logout-button" type="button">
+        Logout
+      </button>
+    </header>
+
+    <p id="errorText" class="error-text" role="alert"></p>
+
+    <section class="overlay-stage">
+      <iframe
+        src="/overlay"
+        title="Live Overlay Preview"
+      ></iframe>
+    </section>
+  </main>
+
+  <script src="/control.js"></script>
+</body>
+</html>
