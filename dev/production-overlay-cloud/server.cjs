@@ -19,6 +19,7 @@ const LOGIN_FAILURE_WINDOW_MS = 10 * 60 * 1000;
 
 const apiKey = process.env.EULER_API_KEY;
 const accessPassword = process.env.APP_ACCESS_PASSWORD;
+const overlayAccessToken = process.env.OVERLAY_ACCESS_TOKEN;
 
 if (!apiKey) {
   console.error("EULER_API_KEY is not available.");
@@ -27,6 +28,11 @@ if (!apiKey) {
 
 if (!accessPassword) {
   console.error("APP_ACCESS_PASSWORD is not available.");
+  process.exit(1);
+}
+
+if (!overlayAccessToken) {
+  console.error("OVERLAY_ACCESS_TOKEN is not available.");
   process.exit(1);
 }
 
@@ -102,6 +108,24 @@ function hasValidSession(token, now = Date.now()) {
 function isAuthenticated(req) {
   const token = parseCookies(req)[SESSION_COOKIE_NAME];
   return hasValidSession(token);
+}
+
+function hasValidOverlayAccessToken(candidate) {
+  if (!candidate) {
+    return false;
+  }
+
+  const suppliedDigest = crypto
+    .createHash("sha256")
+    .update(candidate, "utf8")
+    .digest();
+
+  const expectedDigest = crypto
+    .createHash("sha256")
+    .update(overlayAccessToken, "utf8")
+    .digest();
+
+  return crypto.timingSafeEqual(suppliedDigest, expectedDigest);
 }
 
 function loginClientKey(req) {
@@ -269,13 +293,29 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, 200, { authenticated: false });
     return;
   }
-  const requiresAuthentication =
+  const requiresSessionAuthentication =
     pathname === "/api/status" ||
     pathname === "/api/connect" ||
     pathname === "/api/disconnect" ||
-    pathname === "/events";
+    pathname === "/api/overlay-url";
 
-  if (requiresAuthentication && !isAuthenticated(req)) {
+  if (requiresSessionAuthentication && !isAuthenticated(req)) {
+    sendJson(res, 401, { error: "Authentication required." });
+    return;
+  }
+
+  const overlayToken =
+    new URL(req.url, `http://${req.headers.host || "localhost"}`)
+      .searchParams.get("token");
+  const eventSessionAuthenticated = isAuthenticated(req);
+  const eventOverlayAuthenticated =
+    hasValidOverlayAccessToken(overlayToken);
+
+  if (
+    pathname === "/events" &&
+    !eventSessionAuthenticated &&
+    !eventOverlayAuthenticated
+  ) {
     sendJson(res, 401, { error: "Authentication required." });
     return;
   }
@@ -284,9 +324,21 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && pathname === "/api/overlay-url") {
+    sendJson(res, 200, {
+      url: `/overlay?token=${encodeURIComponent(overlayAccessToken)}`
+    });
+    return;
+  }
+
   if (req.method === "POST" && pathname === "/api/connect") {
     try {
       const body = await readJsonBody(req);
+
+      broadcast("OverlayResetMessage", {
+        reason: "connect"
+      });
+
       const status = connectToTikTok(body.username);
 
       sendJson(res, 202, status);
@@ -301,12 +353,17 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "POST" && pathname === "/api/disconnect") {
     disconnectFromTikTok();
+
+    broadcast("OverlayResetMessage", {
+      reason: "disconnect"
+    });
+
     sendJson(res, 200, getConnectionStatus());
     return;
   }
 
   if (pathname === "/events") {
-    const token = parseCookies(req)[SESSION_COOKIE_NAME];
+    const sessionToken = parseCookies(req)[SESSION_COOKIE_NAME];
 
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -316,7 +373,10 @@ const server = http.createServer(async (req, res) => {
 
     res.write(": connected\n\n");
     clients.add(res);
-    clientSessions.set(res, token);
+
+    if (eventSessionAuthenticated) {
+      clientSessions.set(res, sessionToken);
+    }
 
     req.on("close", () => {
       clients.delete(res);

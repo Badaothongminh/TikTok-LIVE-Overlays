@@ -62,9 +62,9 @@
         </button>
       </form>
 
-      <div class="obs-url">
-        OBS: /overlay
-      </div>
+      <button id="copyUrlButton" class="copy-url-button" type="button">
+        Copy URL
+      </button>
 
       <button id="logoutButton" class="logout-button" type="button">
         Logout
@@ -75,6 +75,7 @@
 
     <section class="overlay-stage">
       <iframe
+        id="overlayPreview"
         src="/overlay"
         title="Live Overlay Preview"
       ></iframe>

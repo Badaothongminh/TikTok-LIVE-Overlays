@@ -159,7 +159,14 @@
       }
     );
 
-    const events = new EventSource("/events");
+    const overlayToken =
+      new URLSearchParams(window.location.search).get("token");
+
+    const eventsUrl = overlayToken
+      ? `/events?token=${encodeURIComponent(overlayToken)}`
+      : "/events";
+
+    const events = new EventSource(eventsUrl);
 
     events.onopen = () => {
       console.log("Local event relay connected.");

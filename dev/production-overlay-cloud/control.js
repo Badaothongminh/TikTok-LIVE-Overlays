@@ -5,6 +5,7 @@ const passwordInput = document.getElementById("password");
 const loginButton = document.getElementById("loginButton");
 const loginError = document.getElementById("loginError");
 const logoutButton = document.getElementById("logoutButton");
+const copyUrlButton = document.getElementById("copyUrlButton");
 
 const form = document.getElementById("connectForm");
 const usernameInput = document.getElementById("username");
@@ -14,6 +15,7 @@ const statusIndicator = document.getElementById("statusIndicator");
 const statusText = document.getElementById("statusText");
 const roomText = document.getElementById("roomText");
 const errorText = document.getElementById("errorText");
+const overlayPreview = document.getElementById("overlayPreview");
 
 let statusPollingId = null;
 
@@ -50,6 +52,7 @@ function renderStatus(status) {
 
   connectButton.disabled = busy;
   disconnectButton.disabled = state === "disconnected";
+
 
   if (status.username && document.activeElement !== usernameInput) {
     usernameInput.value = `@${status.username}`;
@@ -96,6 +99,9 @@ async function enterControlRoom() {
   }
 
   showControl();
+
+  overlayPreview.src = "/overlay";
+
   startStatusPolling();
 }
 
@@ -129,6 +135,51 @@ loginForm.addEventListener("submit", async (event) => {
       error instanceof Error ? error.message : String(error);
   } finally {
     loginButton.disabled = false;
+  }
+});
+
+copyUrlButton.addEventListener("click", async () => {
+  errorText.textContent = "";
+
+  try {
+    const response = await fetch("/api/overlay-url", {
+      cache: "no-store"
+    });
+
+    if (response.status === 401) {
+      showLogin();
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        `Overlay URL request failed (${response.status}).`
+      );
+    }
+
+    const result = await response.json();
+
+    if (typeof result.url !== "string" || !result.url) {
+      throw new Error("Overlay URL is unavailable.");
+    }
+
+    const overlayUrl = new URL(
+      result.url,
+      window.location.origin
+    ).toString();
+
+    await navigator.clipboard.writeText(overlayUrl);
+
+    copyUrlButton.textContent = "Copied!";
+
+    window.setTimeout(() => {
+      copyUrlButton.textContent = "Copy URL";
+    }, 1500);
+  } catch (error) {
+    errorText.textContent =
+      error instanceof Error
+        ? `Unable to copy overlay URL: ${error.message}`
+        : "Unable to copy overlay URL.";
   }
 });
 
